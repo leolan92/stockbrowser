@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Dashboard</title>
+</head>
+<body>
+    <h1>選擇股票</h1>
+    <form id="stockForm" method="POST" action="/">
+        <label>顯示模式：</label>
+        <select name="mode" id="modeSelect">
+            <option value="price" {% if mode == "price" %}selected{% endif %}>價格模式</option>
+            <option value="percentage" {% if mode == "percentage" %}selected{% endif %}>百分比模式</option>
+        </select>
+        <br><br>
+
+        {% for stock in stocks %}
+            <input type="checkbox" name="stocks" value="{{ stock }}"
+                   {% if stock in selected_stocks %}checked{% endif %}>
+            {{ stock }}<br>
+        {% endfor %}
+        <br>
+        <button type="submit">更新圖表</button>
+    </form>
+
+    <hr>
+
+    <!--
+    {% if plot_div %}
+        {{ plot_div|safe }}
+    {% endif %}
+    -->
+
+    <div class="grid-container">
+      <div class="grid-item">
+          <h3>股票走勢</h3>
+          {% if fig_stock %} {{ fig_stock|safe }} {% endif %}
+      </div>
+      <div class="grid-item">
+          <h3>美元兌台幣</h3>
+          {{ fig_usd_twd|safe }}
+      </div>
+      <div class="grid-item">
+          <h3>黃金價格 (TWD/oz)</h3>
+          {{ fig_gold|safe }}
+      </div>
+      <div class="grid-item">
+          <h3>預留區</h3>
+          <p>未來可以放其他圖表</p>
+      </div>
+    </div>
+
+    <!-- JS: 切換模式時自動送出表單 -->
+    <script>
+        document.getElementById("modeSelect").addEventListener("change", function() {
+            document.getElementById("stockForm").submit();
+        });
+    </script>
+</body>
+</html>
