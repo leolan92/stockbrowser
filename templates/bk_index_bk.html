@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Dashboard</title>
+</head>
+<body>
+      <h1>加入股票(選擇性)</h1>
+      <form action="/add_stock" method="POST">
+        <input type="text" name="stock_id" placeholder="Enter stock ID (e.g., 2330)">
+        <button type="submit">加入股票</button>
+      </form>
+      
+      <form action="/add_ER" method="POST">
+        <input type="text" name="ER_id" placeholder="Enter exchange rate ID (e.g., USD)">
+        <button type="submit">加入幣別</button>
+      </form>
+
+      <h1>選擇顯示資料</h1>
+        <form id="dataForm" method="POST" action="/">
+          <div style="display: flex; gap: 50px;">
+            <div>
+              <h3>顯示模式：</h3>
+              <select name="mode" id="modeSelect">
+                  <option value="price" {% if mode == "price" %}selected{% endif %}>價格模式</option>
+                  <option value="percentage" {% if mode == "percentage" %}selected{% endif %}>百分比模式</option>
+              </select>
+            </div>
+      <br><br>
+            <!-- 股票 -->
+            <div>
+              <h3>股票選擇</h3>
+              <select name="stocks" multiple size="6">
+                  {% for stock in stocks %}
+                      <option value="{{ stock }}"
+                          {% if stock in selected_stocks %}selected{% endif %}>
+                          {{ stock }}
+                      </option>
+                  {% endfor %}
+              </select>
+            </div>
+              <!-- 匯率 -->
+              <div>
+              <h3>匯率選擇</h3>
+              <select name="rates" multiple size="6">
+                  {% for rate in rates %}
+                      <option value="{{ rate }}"
+                          {% if rate in selected_rates %}selected{% endif %}>
+                          {{ rate }}/TWD
+                      </option>
+                  {% endfor %}
+              </select>
+              </div>
+          </div>          
+          <br>
+          <button type="submit">更新圖表</button>
+        </form>
+    <hr>
+
+    {% if plot_div %}
+        {{ plot_div|safe }}
+    {% endif %}
+
+    <h1>圖表區</h1>
+    <div class="grid-container">
+
+      <!-- 股票走勢區塊 -->
+      <div class="grid-item">
+          <h3>股票走勢</h3>
+          <form action="{{ url_for('clear_database') }}" method="post">
+              <input type="hidden" name="table" value="stock_prices">
+              <button type="submit" class="btn btn-warning" onclick="return confirm('確定要清空 stock_prices 表嗎？');">
+                  清空股票資料
+              </button>
+          </form>
+          {% if fig_stock %}
+              <div class="chart-container">{{ fig_stock|safe }}</div>
+          {% endif %}
+      </div>
+
+      <!-- 匯率區塊 -->
+      <div class="grid-item">
+          <h3>美元兌台幣</h3>
+          <form action="{{ url_for('clear_database') }}" method="post">
+              <input type="hidden" name="table" value="exchange_rate">
+              <button type="submit" class="btn btn-warning" onclick="return confirm('確定要清空 exchange_rate 表嗎？');">
+                  清空匯率資料
+              </button>
+          </form>
+          {% if fig_usd_twd %}
+              <div class="chart-container">{{ fig_usd_twd|safe }}</div>
+          {% endif %}
+      </div>
+      
+      <!-- 黃金價格區塊 -->
+      <div class="grid-item">
+          <h3>黃金價格 (TWD/oz)</h3>
+          {% if fig_gold %}
+              <div class="chart-container">{{ fig_gold|safe }}</div>
+          {% endif %}
+      </div>
+
+      <!-- 預留區塊 -->
+      <div class="grid-item">
+          <h3>預留區</h3>
+          <p>未來可以放其他圖表</p>
+      </div>
+    </div>
+
+    <style>
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr); /* 2欄 */
+      gap: 20px; /* 間距 */
+      margin-top: 20px;
+    }
+    .grid-item {
+      background: #f8f9fa;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      min-height: 400px; /* 保留最低高度 */
+    }
+    .chart-container {
+      flex: 1 1 auto;
+      display: flex;
+      min-height: 0;
+    }
+    .chart-container .plotly-graph-div {
+      flex: 1 1 auto;
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0;
+      min-height: 0;
+    }
+    /* 手機版自動換成 1 欄 */
+    @media (max-width: 768px) {
+      .grid-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    </style>
+
+    <!-- JS: 切換模式時自動送出表單 -->
+    <script>
+        document.getElementById("modeSelect").addEventListener("change", function() {
+            document.getElementById("dataForm").submit();
+        });
+    </script>
+
+    <script>
+    window.addEventListener('resize', function() {
+      document.querySelectorAll('.plotly-graph-div').forEach(function(el) {
+        Plotly.Plots.resize(el);
+      });
+    });
+    </script>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</body>
+</html>

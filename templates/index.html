@@ -1,59 +1,249 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Stock Dashboard</title>
+    <meta charset="UTF-8">
+    <title>Stock Dashboard - ECharts</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+    <style>
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .grid-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+        .chart-container {
+            flex: 1 1 auto;
+            display: flex;
+            min-height: 0;
+        }
+        .chart {
+            width: 100%;
+            height: 100%;
+        }
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>選擇股票</h1>
-    <form id="stockForm" method="POST" action="/">
-        <label>顯示模式：</label>
-        <select name="mode" id="modeSelect">
-            <option value="price" {% if mode == "price" %}selected{% endif %}>價格模式</option>
-            <option value="percentage" {% if mode == "percentage" %}selected{% endif %}>百分比模式</option>
-        </select>
-        <br><br>
+    <h1>加入股票(選擇性)</h1>
+    <form action="/add_stock" method="POST">
+        <input type="text" name="stock_id" placeholder="Enter stock ID (e.g., 2330)">
+        <button type="submit">加入股票</button>
+    </form>
 
-        {% for stock in stocks %}
-            <input type="checkbox" name="stocks" value="{{ stock }}"
-                   {% if stock in selected_stocks %}checked{% endif %}>
-            {{ stock }}<br>
-        {% endfor %}
+    <form action="/add_ER" method="POST">
+        <input type="text" name="ER_id" placeholder="Enter exchange rate ID (e.g., USD)">
+        <button type="submit">加入幣別</button>
+    </form>
+
+    <h1>選擇顯示資料</h1>
+    <form id="dataForm" method="POST" action="/">
+        <div style="display: flex; gap: 50px;">
+            <div>
+                <h3>顯示模式：</h3>
+                <select name="mode" id="modeSelect">
+                    <option value="price" {% if mode == "price" %}selected{% endif %}>價格模式</option>
+                    <option value="percentage" {% if mode == "percentage" %}selected{% endif %}>百分比模式</option>
+                </select>
+            </div>
+
+            <div>
+                <h3>股票選擇</h3>
+                <select name="stocks" multiple size="6">
+                    {% for stock in stocks %}
+                        <option value="{{ stock }}"
+                            {% if stock in selected_stocks %}selected{% endif %}>
+                            {{ stock }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <h3>匯率選擇</h3>
+                <select name="rates" multiple size="6">
+                    {% for rate in rates %}
+                        <option value="{{ rate }}"
+                            {% if rate in selected_rates %}selected{% endif %}>
+                            {{ rate }}/TWD
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
         <br>
         <button type="submit">更新圖表</button>
     </form>
 
+    <h3>新增事件</h3>
+    <form action="/add_event" method="POST">
+        <input type="date" name="event_date" required>
+        <input type="text" name="title" placeholder="事件描述" required>
+        <button type="submit">加入事件</button>
+    </form>
+
     <hr>
 
-    <!--
-    {% if plot_div %}
-        {{ plot_div|safe }}
-    {% endif %}
-    -->
-
+    <h1>圖表區</h1>
     <div class="grid-container">
-      <div class="grid-item">
-          <h3>股票走勢</h3>
-          {% if fig_stock %} {{ fig_stock|safe }} {% endif %}
-      </div>
-      <div class="grid-item">
-          <h3>美元兌台幣</h3>
-          {{ fig_usd_twd|safe }}
-      </div>
-      <div class="grid-item">
-          <h3>黃金價格 (TWD/oz)</h3>
-          {{ fig_gold|safe }}
-      </div>
-      <div class="grid-item">
-          <h3>預留區</h3>
-          <p>未來可以放其他圖表</p>
-      </div>
+        <div class="grid-item">
+            <h3>股票Dashborad</h3>
+            <form action="{{ url_for('clear_database') }}" method="post">
+                <input type="hidden" name="table" value="stock_prices">
+                <button type="submit" class="btn btn-warning" onclick="return confirm('確定要清空 stock_prices 表嗎？');">
+                    清空股票資料
+                </button>
+            </form>
+            <div class="chart-container">
+                <div id="chart-stock" class="chart"></div>
+            </div>
+        </div>
+
+        <div class="grid-item">
+            <h3>匯率Dashborad</h3>
+            <form action="{{ url_for('clear_database') }}" method="post">
+                <input type="hidden" name="table" value="exchange_rate">
+                <button type="submit" class="btn btn-warning" onclick="return confirm('確定要清空 exchange_rate 表嗎？');">
+                    清空匯率資料
+                </button>
+            </form>
+            <div class="chart-container">
+                <div id="chart-usd-twd" class="chart"></div>
+            </div>
+        </div>
+
+        <div class="grid-item">
+            <h3>黃金價格 (TWD/oz)</h3>
+            <div class="chart-container">
+                <div id="chart-gold" class="chart"></div>
+            </div>
+        </div>
+
+        <div class="grid-item">
+            <h3>預留區</h3>
+            <p>未來可以放其他圖表</p>
+        </div>
     </div>
 
-    <!-- JS: 切換模式時自動送出表單 -->
     <script>
-        document.getElementById("modeSelect").addEventListener("change", function() {
-            document.getElementById("stockForm").submit();
-        });
+    function renderMultiLineChart(id, title, dataDict, xData) {
+      const el = document.getElementById(id);
+      const chart = echarts.init(el);
+      // const events = {{ events|tojson }} || []; // 後端傳過來的事件清單
+      const events   = {{ events|tojson | safe }} || [];
+      // 把事件轉成 series 的 markPoint
+      const series = Object.keys(dataDict).map(k => ({
+          name: k,
+          type: 'line',
+          smooth: true,
+          data: dataDict[k].map((v, i) => [new Date(xData[i]), v]),
+      }));
+
+      // === 新增事件線 (透明 scatter) ===
+      const eventSeries = {
+        name: '事件',
+        type: 'scatter',
+        data: events.map(ev => [new Date(ev.date), 0]), // 固定在 y=0 或其他接近底部的位置
+        symbol: 'pin',
+        symbolSize: 20,
+        itemStyle: { color: 'red' },
+        label: {
+          show: true,
+          position: 'bottom',  // 把標籤顯示在下方
+          formatter: function (params) {
+            const ev = events[params.dataIndex];
+            return ev.title;   // 顯示事件標題
+          }
+        },
+        tooltip: { show: false }
+      };
+
+      // 加入事件線到 series series.push(eventSeries);
+
+      chart.setOption({
+          title: { text: title },
+          tooltip: { trigger: 'axis' },
+          legend: { data: Object.keys(dataDict) },
+          xAxis: {
+            type: 'time',
+            min: Math.min(...xData.map(d => new Date(d).getTime())),  // 最小時間
+            max: Math.max(...xData.map(d => new Date(d).getTime())),  // 最大時間
+            // axisLabel: {
+            //   margin: 30, // 原本大約是 8~10，改成 30 讓標籤往下
+            // },
+          },
+          yAxis: [
+            {
+              type: 'value',
+              scale: true,
+              min: 'dataMin',
+              max: 'dataMax',
+              axisLabel: {
+                formatter: value => value.toFixed(2)
+              }
+            },
+            {
+              type: 'value',
+              min: 0,
+              max: 1,
+              show: false
+            }
+          ],
+          series: [
+            ...series, // 這裡改成 series
+            {
+              name: '事件',
+              type: 'scatter',
+              yAxisIndex: 1,
+              data: events.map(ev => [new Date(ev.date), 0]),
+              symbol: 'pin',
+              symbolSize: 20,
+              itemStyle: { color: 'red' },
+              label: {
+                show: true,
+                position: 'bottom',
+                offset: [0, 20],
+                formatter: params => events[params.dataIndex].title
+              },
+              tooltip: { show: false }
+            }
+          ],
+          dataZoom: [      // <-- 這裡放
+              {
+                  type: 'inside',   // 滑鼠拖拉或滾輪縮放
+                  xAxisIndex: 0
+              },
+              {
+                  type: 'slider',   // 圖表下方滑桿
+                  xAxisIndex: 0
+              }
+          ]
+      });
+      window.addEventListener('resize', () => chart.resize());
+    }
+
+    // 後端注入
+    const stockData = {{ stock_data|tojson }};
+    const usdTwdData = {{ usd_twd_data|tojson }};
+
+    // 渲染
+    renderMultiLineChart('chart-stock', '股票走勢', stockData.values, stockData.dates);
+    renderMultiLineChart('chart-usd-twd', '兌台幣匯率', usdTwdData.values, usdTwdData.dates);
     </script>
+
 </body>
 </html>
